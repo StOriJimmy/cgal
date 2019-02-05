@@ -2,6 +2,7 @@
 #include <CGAL/Three/Scene_draw_interface.h>
 #include <QMouseEvent>
 #include <QKeyEvent>
+#include <QSettings>
 #include <QDebug>
 #include <QSettings>
 #include <QOpenGLShader>
@@ -254,7 +255,6 @@ Viewer::Viewer(QWidget* parent, bool antialiasing)
   d->shader_programs.resize(NB_OF_PROGRAMS);
   d->textRenderer = new TextRenderer();
   d->is_2d_selection_mode = false;
-  d->total_pass = 4;
   
   connect( d->textRenderer, SIGNAL(sendMessage(QString,int)),
            this, SLOT(printMessage(QString,int)) );
@@ -289,8 +289,12 @@ Viewer::Viewer(QWidget* parent, bool antialiasing)
                              tr("Selects a point. When the second point is selected,  "
                                 "displays the two points and the distance between them."));
   setMouseBindingDescription(Qt::Key_O, Qt::NoModifier, Qt::LeftButton,
-                             tr("Move the camera orthogonally to the picked facet of a Scene_polyhedron_item or "
+                             tr("Move the camera orthogonally to the picked facet of a Scene_surface_mesh_item or "
                                 "to the current selection of a Scene_points_with_normal_item."));
+  setKeyDescription(Qt::Key_F5,
+                    tr("Reloads the selected item if possible."));
+  setKeyDescription(Qt::Key_F11,
+                    tr("Toggle the viewer's fullscreen mode."));
 
   prev_radius = sceneRadius();
   d->has_text = false;
@@ -327,7 +331,14 @@ Viewer::~Viewer()
                              .arg(d->specular.z()));
     viewer_settings.setValue("spec_power",
                              d->spec_power);
+    if(d->_recentFunctions)
+      delete d->_recentFunctions;
+    if(d->painter)
+      delete d->painter;
+    if(d->textRenderer)
+      d->textRenderer->deleteLater();
   delete d;
+
 }
 
 void Viewer::setScene(CGAL::Three::Scene_draw_interface* scene)
@@ -417,9 +428,10 @@ void Viewer::init()
   }
   else
       d->extension_is_found = true;
-
-
-  setBackgroundColor(::Qt::white);
+  QSettings settings;
+  QString colorname = settings.value("background_color", "#ffffff").toString();
+  QColor bc(colorname);
+  setBackgroundColor(bc);
   d->vao.create();
   d->buffer.create();
   
@@ -606,12 +618,6 @@ void Viewer::keyPressEvent(QKeyEvent* e)
         update();
         return;
     }
-    else if(e->key() == Qt::Key_C) {
-      QVector4D box[6];
-      for(int i=0; i<6; ++i)
-        box[i] = QVector4D(1,0,0,0);
-          enableClippingBox(box);
-        }
   }
   else if(e->key() == Qt::Key_I && e->modifiers() & Qt::ControlModifier){
     d->scene->printAllIds(this);
@@ -709,12 +715,27 @@ void Viewer::drawWithNames()
 void Viewer::postSelection(const QPoint& pixel)
 {
   Q_EMIT selected(this->selectedName());
-  bool found = false;
-  CGAL::qglviewer::Vec point = camera()->pointUnderPixel(pixel, found) - offset();
+  CGAL::qglviewer::Vec point;
+  bool found = true;
+  if(property("picked_point").isValid()) {
+    if(!property("picked_point").toList().isEmpty())
+    {
+      QList<QVariant> picked_point = property("picked_point").toList();
+      point = CGAL::qglviewer::Vec (picked_point[0].toDouble(),
+          picked_point[1].toDouble(),
+          picked_point[2].toDouble());
+    }
+    else{
+      found = false;
+    }
+  }
+  else{
+    point = camera()->pointUnderPixel(pixel, found) - offset();
+  }
   if(found) {
     Q_EMIT selectedPoint(point.x,
-                       point.y,
-                       point.z);
+                         point.y,
+                         point.z);
     CGAL::qglviewer::Vec dir;
     CGAL::qglviewer::Vec orig;
     if(d->projection_is_ortho)
@@ -726,8 +747,10 @@ void Viewer::postSelection(const QPoint& pixel)
       orig = camera()->position() - offset();
       dir = point - orig;
     }
+    this->setProperty("performing_selection", true);
     Q_EMIT selectionRay(orig.x, orig.y, orig.z,
-                      dir.x, dir.y, dir.z);
+                        dir.x, dir.y, dir.z);
+    this->setProperty("performing_selection", false);
   }
 }
 bool CGAL::Three::Viewer_interface::readFrame(QString s, CGAL::qglviewer::Frame& frame)
@@ -815,6 +838,9 @@ void Viewer::attribBuffers(int program_name) const {
     program->bind();
     program->setUniformValue("point_size", getGlPointSize());
     program->setUniformValue("mvp_matrix", mvp_mat);
+    QMatrix4x4 id_mat;
+    id_mat.setToIdentity();
+    program->setUniformValue("f_matrix", id_mat);
     program->setUniformValue("is_clipbox_on", d->clipping);
     if(d->clipping)
     {
@@ -837,6 +863,7 @@ void Viewer::attribBuffers(int program_name) const {
     case PROGRAM_WITH_LIGHT:
     case PROGRAM_SPHERES:
     case PROGRAM_CUTPLANE_SPHERES:
+    case PROGRAM_HEAT_INTENSITY:
       
       program->setUniformValue("alpha", 1.0f); //overriden in item draw() if necessary
     }
@@ -852,6 +879,7 @@ void Viewer::attribBuffers(int program_name) const {
     case PROGRAM_SPHERES:
     case PROGRAM_OLD_FLAT:
     case PROGRAM_FLAT:
+    case PROGRAM_HEAT_INTENSITY:
         program->setUniformValue("light_pos", light_pos);
         program->setUniformValue("light_diff",d->diffuse);
         program->setUniformValue("light_spec", d->specular);
@@ -870,6 +898,7 @@ void Viewer::attribBuffers(int program_name) const {
     case PROGRAM_SPHERES:
     case PROGRAM_OLD_FLAT:
     case PROGRAM_FLAT:
+    case PROGRAM_HEAT_INTENSITY:
       program->setUniformValue("mv_matrix", mv_mat);
       break;
     case PROGRAM_WITHOUT_LIGHT:
@@ -985,6 +1014,7 @@ void Viewer::drawVisualHints()
     
     if (d->_displayMessage)
       d->textRenderer->removeText(message_text);
+    delete message_text;
 }
 
 QOpenGLShaderProgram* Viewer::declare_program(int name,
@@ -1068,6 +1098,19 @@ QOpenGLShaderProgram* Viewer::getShaderProgram(int name) const
     program->setProperty("hasLight", true);
     program->setProperty("hasNormals", true);
     program->setProperty("hasTransparency", true);
+    program->setProperty("hasFMatrix", true);
+    return program;
+  }
+  case PROGRAM_HEAT_INTENSITY:
+  {
+    QOpenGLShaderProgram* program = isOpenGL_4_3() 
+        ? declare_program(name, ":/cgal/Polyhedron_3/resources/heat_intensity_shader.v" , ":/cgal/Polyhedron_3/resources/heat_intensity_shader.f")
+        : declare_program(name, ":/cgal/Polyhedron_3/resources/compatibility_shaders/heat_intensity_shader.v" , 
+                          ":/cgal/Polyhedron_3/resources/compatibility_shaders/heat_intensity_shader.f");
+    program->setProperty("hasLight", true);
+    program->setProperty("hasNormals", true);
+    program->setProperty("hasTransparency", true);
+    program->setProperty("hasDistanceValues", true);
     return program;
   }
   case PROGRAM_WITHOUT_LIGHT:
@@ -1460,15 +1503,6 @@ void Viewer::setTotalPass(int p)
 {
   d->total_pass = p;
   update();
-}
-
-void Viewer::setTotalPass_clicked()
-{
-  bool ok;
-  int passes = QInputDialog::getInt(0, QString("Set Number of Passes"), QString("Number of Depth Peeling Passes:  "), 4, 2,100, 1, &ok);
-  if(!ok)
-    return;
-  setTotalPass(passes);
 }
 
 void Viewer::messageLogged(QOpenGLDebugMessage msg)
