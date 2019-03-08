@@ -65,8 +65,7 @@ class VSA_WRAPPER_EXPORT VSA_wrapper {
       : center_pmap(center_pmap_), area_pmap(area_pmap_) {}
 
     FT compute_error(const face_descriptor f, const SMesh &, const Proxy &px) const {
-      return FT(std::sqrt(CGAL::to_double(
-        CGAL::squared_distance(get(center_pmap, f), px))));
+      return CGAL::sqrt(CGAL::squared_distance(get(center_pmap, f), px));
     }
 
     template <typename FaceRange>
@@ -111,6 +110,7 @@ public:
     Visual_items() :
       group(NULL),
       seeds(NULL),
+      has_meshing_items(false),
       triangles(NULL),
       polygons(NULL),
       anchors(NULL),
@@ -118,6 +118,7 @@ public:
 
     CGAL::Three::Scene_group_item *group;
     Scene_polylines_item *seeds;
+    bool has_meshing_items;
     Scene_polygon_soup_item *triangles;
     Scene_polylines_item *polygons;
     Scene_polylines_item *anchors;
