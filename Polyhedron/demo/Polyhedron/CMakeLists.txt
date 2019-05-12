@@ -135,6 +135,7 @@ if(CGAL_Qt5_FOUND AND Qt5_FOUND AND OPENGL_FOUND )
   find_package(Boost COMPONENTS thread system filesystem)
 
   qt5_wrap_ui( MainWindowUI_files MainWindow.ui)
+  qt5_wrap_ui( SubViewerUI_files SubViewer.ui)
   qt5_wrap_ui( statisticsUI_FILES Statistics_on_item_dialog.ui)
   qt5_wrap_ui( FileLoaderDialogUI_files FileLoaderDialog.ui )
   qt5_wrap_ui( Show_point_dialogUI_FILES Show_point_dialog.ui )
@@ -148,9 +149,10 @@ if(CGAL_Qt5_FOUND AND Qt5_FOUND AND OPENGL_FOUND )
 
   qt5_add_resources ( CGAL_Qt5_RESOURCE_FILES Polyhedron_3.qrc )
   find_path(CGAL_THREE_HEADERS_PATH
-    NAME CGAL/Three/Scene_item.h
+    NAMES CGAL/Three/Scene_item.h
     HINTS ${CGAL_INCLUDE_DIRS}
     NO_DEFAULT_PATH
+    NO_CMAKE_FIND_ROOT_PATH
     DOC "Path to CGAL/Three/Scene_item.h")
   
   if(CGAL_THREE_HEADERS_PATH)
@@ -165,7 +167,7 @@ if(CGAL_Qt5_FOUND AND Qt5_FOUND AND OPENGL_FOUND )
     qt5_generate_moc( "${CGAL_THREE_HEADERS_PATH}/CGAL/Three/TextRenderer.h"
       "${CMAKE_CURRENT_BINARY_DIR}/TextRenderer_moc.cpp" )
   else()
-    message(FATAL_ERROR "Cannot find <CGAL/Three/Viewer_interface.h>")
+    message(FATAL_ERROR "Cannot find <CGAL/Three/Scene_item.h>")
   endif()
 
   unset(CGAL_THREE_HEADERS_PATH CACHE)
@@ -248,9 +250,6 @@ if(CGAL_Qt5_FOUND AND Qt5_FOUND AND OPENGL_FOUND )
 
   # special
 
-  add_item(scene_polylines_item Scene_polylines_item.cpp)
-  target_link_libraries(scene_polylines_item PUBLIC scene_basic_objects)
-
   add_item(scene_item_decorator Scene_polyhedron_item_decorator.cpp )
   target_link_libraries(scene_item_decorator PUBLIC scene_surface_mesh_item)
  
@@ -301,7 +300,11 @@ if(CGAL_Qt5_FOUND AND Qt5_FOUND AND OPENGL_FOUND )
     CGAL_target_use_TBB(scene_points_with_normal_item)
   endif()
 
-
+  add_item(scene_polylines_item Scene_polylines_item.cpp)
+  target_link_libraries(scene_polylines_item PUBLIC scene_basic_objects scene_points_with_normal_item)
+  
+  add_item(scene_lcc_item Scene_lcc_item.cpp)
+  
   foreach( lib 
       demo_framework
       scene_basic_objects
@@ -317,7 +320,8 @@ if(CGAL_Qt5_FOUND AND Qt5_FOUND AND OPENGL_FOUND )
     Polyhedron_demo.cpp
     File_loader_dialog_moc.cpp
     ${CGAL_Qt5_RESOURCE_FILES} ${CGAL_Qt5_MOC_FILES}
-    ${FileLoaderDialogUI_files} ${MainWindowUI_files} ${PreferencesUI_FILES} ${statisticsUI_FILES})
+    ${FileLoaderDialogUI_files} ${MainWindowUI_files} ${PreferencesUI_FILES} 
+    ${statisticsUI_FILES} ${SubViewerUI_files})
   target_link_libraries(polyhedron_demo PUBLIC
     demo_framework point_dialog Qt5::Gui Qt5::OpenGL Qt5::Widgets Qt5::Script)
   add_executable  ( Polyhedron_3 Polyhedron_3.cpp )
@@ -369,8 +373,6 @@ add_to_cached_list( CGAL_EXECUTABLE_TARGETS CGAL_Classification )
 #
   if(TARGET CGAL_Qt5)
     export(TARGETS CGAL CGAL_Qt5 CGAL_ImageIO FILE polyhedron_demo_targets.cmake NAMESPACE Polyhedron_)
-  else()
-    export(TARGETS FILE polyhedron_demo_targets.cmake NAMESPACE Polyhedron_)
   endif()
   if(TARGET CGAL_Qt5_moc_and_resources)
     export(
@@ -393,10 +395,6 @@ add_to_cached_list( CGAL_EXECUTABLE_TARGETS CGAL_Classification )
     NAMESPACE Polyhedron_
     APPEND FILE polyhedron_demo_targets.cmake)
 
-  export(
-    TARGETS
-    NAMESPACE Polyhedron_
-    APPEND FILE polyhedron_demo_targets.cmake)
   configure_file(CGAL_polyhedron_demoConfig.cmake.in  CGAL_polyhedron_demoConfig.cmake)
 #TO DO script the activation of all the plugins.
 

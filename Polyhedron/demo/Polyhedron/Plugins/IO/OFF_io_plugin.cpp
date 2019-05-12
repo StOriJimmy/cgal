@@ -32,6 +32,12 @@ public:
       return true; 
     return false;
   }
+  bool isDefaultLoader(const QString& name) const 
+  { 
+    if(name == QString("off")) 
+      return true; 
+    return false;
+  }
   QString name() const { return "off_plugin"; }
   QString nameFilters() const { return "OFF files (*.off);;Wavefront OBJ (*.obj)"; }
   bool canLoad() const;
@@ -132,7 +138,7 @@ Polyhedron_demo_off_plugin::load_off(QFileInfo fileinfo) {
   Scene_surface_mesh_item* item = new Scene_surface_mesh_item(surface_mesh);
   item->setName(fileinfo.completeBaseName());
   std::size_t isolated_v = 0;
-  BOOST_FOREACH(vertex_descriptor v, vertices(*surface_mesh))
+  for(vertex_descriptor v : vertices(*surface_mesh))
   {
     if(surface_mesh->is_isolated(v))
     {
@@ -149,6 +155,8 @@ Polyhedron_demo_off_plugin::load_off(QFileInfo fileinfo) {
                          tr("%1 isolated vertices found")
                          .arg(item->getNbIsolatedvertices()));
   }
+  if(item->isItemMulticolor())
+    item->computeItemColorVectorAutomatically(true);
   return item;
 }
 

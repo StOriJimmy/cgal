@@ -10,14 +10,11 @@ namespace CGAL
 The class `Periodic_2_triangulation_2` represents a 2-dimensional
 triangulation of a point set in \f$ \mathbb T_c^2\f$.
 
-\cgalHeading{Parameters}
-
-The class `Periodic_2_triangulation_2` has two template
-parameters. The first one \tparam Traits is the geometric traits, it
+\tparam Traits is the geometric traits, it
 is to be instantiated by a model of the concept
 `Periodic_2TriangulationTraits_2`.
 
-The second parameter \tparam TDS is the triangulation data structure,
+\tparam TDS is the triangulation data structure,
 it has to be instantiated by a model of the concept
 `TriangulationDataStructure_2` with some additional
 functionality in faces.
@@ -889,13 +886,13 @@ public:
   /*!
   returns the vertex of the \f$ i^{th}\f$ neighbor of `f` that is
   opposite to `f`.
-  \pre $0 \\leqle i \\leqle 2$.
+  \pre \f$ 0 \leq i \leq 2\f$.
   */
   Vertex_handle mirror_vertex(Face_handle f, int i) const;
 
   /*!
   returns the index of `f` in its \f$ i^{th}\f$ neighbor.
-  \pre $0 \\leqle i \\leqle 2$.
+  \pre \f$0 \leq i \leq 2\f$.
   */
   int mirror_index(Face_handle f, int i) const;
 
@@ -1062,12 +1059,12 @@ public:
 /// @{
 
   /*!
-  Returns \f$ i+1\f$ modulo 3.\pre $0 \\leqle i \\leqle 2$.
+  Returns \f$ i+1\f$ modulo 3.\pre \f$0 \leq i \leq 2\f$.
   */
   int ccw(int i) const;
 
   /*!
-  Returns \f$ i+2\f$ modulo 3.\pre $0 \\leqle i \\leqle 2$.
+  Returns \f$ i+2\f$ modulo 3.\pre \f$0 \leq i \leq 2\f$.
   */
   int cw(int i) const;
 
