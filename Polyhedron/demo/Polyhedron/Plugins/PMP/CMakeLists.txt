@@ -68,8 +68,8 @@ polyhedron_demo_plugin(selection_plugin Selection_plugin ${selectionUI_FILES} KE
 target_link_libraries(selection_plugin PUBLIC scene_selection_item scene_points_with_normal_item scene_polylines_item)
 
 #to keep it simple to compile
-add_custom_target(self_intersection_plugin )
-add_dependencies(self_intersection_plugin selection_plugin)
+#add_custom_target(self_intersection_plugin )
+#add_dependencies(self_intersection_plugin selection_plugin)
 
 polyhedron_demo_plugin(triangulate_facets_plugin Triangulate_facets_plugin KEYWORDS PMP)
 target_link_libraries(triangulate_facets_plugin PUBLIC scene_surface_mesh_item)
